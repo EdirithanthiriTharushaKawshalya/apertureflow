@@ -780,11 +780,9 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, setSheetState) {
             final formattedFormDate = DateFormat('EEEE, MMMM d, yyyy').format(formDate);
 
-            // AnimatedPadding smoothly interpolates the keyboard inset as it changes
-            // frame-to-frame, instead of the sheet jumping to the new height instantly.
-            return AnimatedPadding(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
+            // Use standard Padding since MediaQuery.of(context).viewInsets.bottom
+            // is already animated frame-by-frame by the OS / Flutter framework.
+            return Padding(
               padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
               child: Container(
                 decoration: const BoxDecoration(
