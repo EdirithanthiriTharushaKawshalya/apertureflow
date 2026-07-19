@@ -653,7 +653,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               border: Border.all(color: const Color(0xFFEBEBEB), width: 1.0),
                             ),
                             child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Container(
                                   width: 38,
@@ -1566,7 +1566,7 @@ class _HomeScreenState extends State<HomeScreen> {
             boxShadow: _buildSoftShadow(),
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 width: 44,
@@ -1583,21 +1583,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      event.type,
-                      style: const TextStyle(
-                        color: Color(0xFF0F172A),
-                        fontSize: 14.0,
-                        fontWeight: FontWeight.bold,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  event.type,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 15.0,
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
+                  ),
                 ),
               ),
+              const SizedBox(width: 14),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert_rounded, color: Colors.black26, size: 20),
                 splashRadius: 20,
