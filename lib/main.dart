@@ -780,28 +780,29 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, setSheetState) {
             final formattedFormDate = DateFormat('EEEE, MMMM d, yyyy').format(formDate);
 
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: Offset(0, -2),
-                  )
-                ],
-              ),
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
-              child: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
+            // AnimatedPadding smoothly interpolates the keyboard inset as it changes
+            // frame-to-frame, instead of the sheet jumping to the new height instantly.
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: Offset(0, -2),
+                    )
+                  ],
+                ),
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: formKey,
+                    child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -943,63 +944,67 @@ class _HomeScreenState extends State<HomeScreen> {
                             
                             const Divider(height: 1, color: Color(0xFFEBEBEB), indent: 46),
                             
-                            // ROW 3: Notes text input field Row (tap anywhere in the row to focus, like Date)
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => FocusScope.of(context).requestFocus(notesFocusNode),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 4.0),
-                                      child: Icon(Icons.notes_outlined, color: Color(0xFF484848), size: 18),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 4.0),
-                                      child: Text(
-                                        'Notes',
-                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF484848)),
+                            // ROW 3: Notes text input field Row. Only the icon/label area uses a
+                            // tap-to-focus GestureDetector — the TextFormField itself is left
+                            // alone so its own gesture handling (and the on-screen keyboard
+                            // trigger tied to it) isn't intercepted by an ancestor detector.
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => FocusScope.of(context).requestFocus(notesFocusNode),
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(top: 4.0, bottom: 4.0),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.notes_outlined, color: Color(0xFF484848), size: 18),
+                                          SizedBox(width: 12),
+                                          Text(
+                                            'Notes',
+                                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF484848)),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: notesController,
-                                        focusNode: notesFocusNode,
-                                        minLines: 1,
-                                        maxLines: null,
-                                        keyboardType: TextInputType.multiline,
-                                        textAlign: TextAlign.end,
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                                        decoration: InputDecoration(
-                                          hintText: selectedType == 'Booked Shoot'
-                                              ? 'Client name & Location'
-                                              : 'Renter name & gear list',
-                                          hintStyle: const TextStyle(color: Colors.black26, fontSize: 13),
-                                          isDense: true,
-                                          contentPadding: EdgeInsets.zero,
-                                          border: InputBorder.none,
-                                        ),
-                                        validator: (value) {
-                                          if (value == null || value.trim().isEmpty) {
-                                            return 'Please add details.';
-                                          }
-                                          return null;
-                                        },
-                                        onChanged: (_) {
-                                          if (localError != null) {
-                                            setSheetState(() {
-                                              localError = null;
-                                            });
-                                          }
-                                        },
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: notesController,
+                                      focusNode: notesFocusNode,
+                                      minLines: 1,
+                                      maxLines: null,
+                                      keyboardType: TextInputType.multiline,
+                                      textAlign: TextAlign.end,
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                      decoration: InputDecoration(
+                                        hintText: selectedType == 'Booked Shoot'
+                                            ? 'Client name & Location'
+                                            : 'Renter name & gear list',
+                                        hintStyle: const TextStyle(color: Colors.black26, fontSize: 13),
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        border: InputBorder.none,
                                       ),
+                                      validator: (value) {
+                                        if (value == null || value.trim().isEmpty) {
+                                          return 'Please add details.';
+                                        }
+                                        return null;
+                                      },
+                                      onChanged: (_) {
+                                        if (localError != null) {
+                                          setSheetState(() {
+                                            localError = null;
+                                          });
+                                        }
+                                      },
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
 
@@ -1198,6 +1203,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
+              ),
               ),
             );
           },
