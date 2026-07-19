@@ -80,7 +80,6 @@ class NotificationService {
     required DateTime reminderTime,
     required String eventType,
     required String eventDate,
-    required String notes,
   }) async {
     await cancelReminder(bookingId);
 
@@ -91,7 +90,7 @@ class NotificationService {
     await _plugin.zonedSchedule(
       id: _notificationIdFor(bookingId),
       title: '$eventType Reminder',
-      body: '$eventDate — $notes',
+      body: eventDate,
       scheduledDate: scheduledDate,
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(

@@ -99,7 +99,7 @@ class FirestoreBookingRepository implements BookingRepository {
       return snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>?;
         if (data == null) {
-          return CalendarEvent(id: doc.id, date: DateTime.now(), type: 'Booked Shoot', notes: '');
+          return CalendarEvent(id: doc.id, date: DateTime.now(), type: 'Booked Shoot');
         }
         return CalendarEvent.fromFirestore(doc.id, data);
       }).toList();
@@ -140,25 +140,21 @@ class MockBookingRepository implements BookingRepository {
         id: 'mock_shoot_1',
         date: DateTime(year, month, 5),
         type: 'Booked Shoot',
-        notes: 'Commercial Fashion Shoot - Studio A (Client: Alexa V.)',
       ),
       CalendarEvent(
         id: 'mock_rental_1',
         date: DateTime(year, month, 12),
         type: 'Equipment Rental',
-        notes: 'Sony FX3 Cinema Camera + 24-70mm GM II (Renter: Dave K.)',
       ),
       CalendarEvent(
         id: 'mock_rental_2',
         date: DateTime(year, month, 12),
         type: 'Equipment Rental',
-        notes: 'Sennheiser Wireless Lav Mic Kit (Renter: Dave K.)',
       ),
       CalendarEvent(
         id: 'mock_shoot_2',
         date: DateTime(year, month, 20),
         type: 'Booked Shoot',
-        notes: 'Sunset Portrait Session - Beachside (Client: The Miller Family)',
       ),
     ]);
     _controller.add(List.from(_bookings));
@@ -180,7 +176,6 @@ class MockBookingRepository implements BookingRepository {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       date: event.date,
       type: event.type,
-      notes: event.notes,
       reminderTime: event.reminderTime,
     );
     _bookings.add(newEvent);
@@ -205,19 +200,17 @@ class MockBookingRepository implements BookingRepository {
 }
 
 /// Calendar event model class containing basic identifier, event date,
-/// type classification, and custom details/notes.
+/// and type classification.
 class CalendarEvent {
   final String id;
   final DateTime date;
   final String type; // 'Booked Shoot' or 'Equipment Rental'
-  final String notes;
   final DateTime? reminderTime; // Optional local-notification reminder moment
 
   CalendarEvent({
     required this.id,
     required this.date,
     required this.type,
-    required this.notes,
     this.reminderTime,
   });
 
@@ -225,7 +218,6 @@ class CalendarEvent {
   Map<String, dynamic> toFirestore() => {
         'date': Timestamp.fromDate(date),
         'type': type,
-        'notes': notes,
         'reminderTime': reminderTime != null ? Timestamp.fromDate(reminderTime!) : null,
       };
 
@@ -237,7 +229,6 @@ class CalendarEvent {
       id: docId,
       date: timestamp.toDate(),
       type: data['type'] as String,
-      notes: data['notes'] as String,
       reminderTime: reminderTimestamp?.toDate(),
     );
   }
@@ -452,28 +443,24 @@ class _HomeScreenState extends State<HomeScreen> {
         id: '',
         date: day5,
         type: 'Booked Shoot',
-        notes: 'Commercial Fashion Shoot - Studio A (Client: Alexa V.)',
       ));
 
       await widget.repository.addBooking(CalendarEvent(
         id: '',
         date: day12,
         type: 'Equipment Rental',
-        notes: 'Sony FX3 Cinema Camera + 24-70mm GM II (Renter: Dave K.)',
       ));
 
       await widget.repository.addBooking(CalendarEvent(
         id: '',
         date: day12,
         type: 'Equipment Rental',
-        notes: 'Sennheiser Wireless Lav Mic Kit (Renter: Dave K.)',
       ));
 
       await widget.repository.addBooking(CalendarEvent(
         id: '',
         date: day20,
         type: 'Booked Shoot',
-        notes: 'Sunset Portrait Session - Beachside (Client: The Miller Family)',
       ));
     } catch (e) {
       debugPrint("Error seeding Firestore: $e");
@@ -683,12 +670,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        event.type.toUpperCase(),
-                                        style: TextStyle(color: accent, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.6),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        event.notes,
+                                        event.type,
                                         style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.bold),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
@@ -770,8 +752,6 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         DateTime formDate = editingEvent?.date ?? _selectedDay;
         String selectedType = editingEvent?.type ?? 'Booked Shoot';
-        final notesController = TextEditingController(text: editingEvent?.notes ?? '');
-        final notesFocusNode = FocusNode();
         final formKey = GlobalKey<FormState>();
         String? localError;
         DateTime? reminderTime = editingEvent?.reminderTime;
@@ -939,73 +919,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                             ),
-                            
-                            const Divider(height: 1, color: Color(0xFFEBEBEB), indent: 46),
-                            
-                            // ROW 3: Notes text input field Row. Only the icon/label area uses a
-                            // tap-to-focus GestureDetector — the TextFormField itself is left
-                            // alone so its own gesture handling (and the on-screen keyboard
-                            // trigger tied to it) isn't intercepted by an ancestor detector.
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () => FocusScope.of(context).requestFocus(notesFocusNode),
-                                    child: const Padding(
-                                      padding: EdgeInsets.only(top: 4.0, bottom: 4.0),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.notes_outlined, color: Color(0xFF484848), size: 18),
-                                          SizedBox(width: 12),
-                                          Text(
-                                            'Notes',
-                                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF484848)),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: notesController,
-                                      focusNode: notesFocusNode,
-                                      minLines: 1,
-                                      maxLines: null,
-                                      keyboardType: TextInputType.multiline,
-                                      textAlign: TextAlign.end,
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                                      decoration: InputDecoration(
-                                        hintText: selectedType == 'Booked Shoot'
-                                            ? 'Client name & Location'
-                                            : 'Renter name & gear list',
-                                        hintStyle: const TextStyle(color: Colors.black26, fontSize: 13),
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                        border: InputBorder.none,
-                                      ),
-                                      validator: (value) {
-                                        if (value == null || value.trim().isEmpty) {
-                                          return 'Please add details.';
-                                        }
-                                        return null;
-                                      },
-                                      onChanged: (_) {
-                                        if (localError != null) {
-                                          setSheetState(() {
-                                            localError = null;
-                                          });
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
                             const Divider(height: 1, color: Color(0xFFEBEBEB), indent: 46),
 
                             // ROW 4: Reminder Row
@@ -1177,7 +1090,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               id: editingEvent?.id ?? '',
                               date: normDate,
                               type: selectedType,
-                              notes: notesController.text.trim(),
                               reminderTime: reminderTime,
                             );
                             Navigator.pop(context, event);
@@ -1224,7 +1136,6 @@ class _HomeScreenState extends State<HomeScreen> {
             reminderTime: resultEvent.reminderTime!,
             eventType: resultEvent.type,
             eventDate: DateFormat('EEEE, MMMM d').format(resultEvent.date),
-            notes: resultEvent.notes,
           );
         } else {
           await NotificationService.instance.cancelReminder(bookingId);
@@ -1676,20 +1587,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      event.type.toUpperCase(),
-                      style: TextStyle(
-                        color: accent,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      event.notes,
+                      event.type,
                       style: const TextStyle(
                         color: Color(0xFF0F172A),
-                        fontSize: 13.5,
+                        fontSize: 14.0,
                         fontWeight: FontWeight.bold,
                         height: 1.3,
                       ),
