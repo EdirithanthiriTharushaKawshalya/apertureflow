@@ -771,6 +771,7 @@ class _HomeScreenState extends State<HomeScreen> {
         DateTime formDate = editingEvent?.date ?? _selectedDay;
         String selectedType = editingEvent?.type ?? 'Booked Shoot';
         final notesController = TextEditingController(text: editingEvent?.notes ?? '');
+        final notesFocusNode = FocusNode();
         final formKey = GlobalKey<FormState>();
         String? localError;
         DateTime? reminderTime = editingEvent?.reminderTime;
@@ -942,57 +943,63 @@ class _HomeScreenState extends State<HomeScreen> {
                             
                             const Divider(height: 1, color: Color(0xFFEBEBEB), indent: 46),
                             
-                            // ROW 3: Notes text input field Row
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Padding(
-                                    padding: EdgeInsets.only(top: 4.0),
-                                    child: Icon(Icons.notes_outlined, color: Color(0xFF484848), size: 18),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Padding(
-                                    padding: EdgeInsets.only(top: 4.0),
-                                    child: Text(
-                                      'Notes',
-                                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF484848)),
+                            // ROW 3: Notes text input field Row (tap anywhere in the row to focus, like Date)
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => FocusScope.of(context).requestFocus(notesFocusNode),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 4.0),
+                                      child: Icon(Icons.notes_outlined, color: Color(0xFF484848), size: 18),
                                     ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: notesController,
-                                      maxLines: null,
-                                      keyboardType: TextInputType.multiline,
-                                      textAlign: TextAlign.end,
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                                      decoration: InputDecoration(
-                                        hintText: selectedType == 'Booked Shoot' 
-                                            ? 'Client name & Location' 
-                                            : 'Renter name & gear list',
-                                        hintStyle: const TextStyle(color: Colors.black26, fontSize: 13),
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                        border: InputBorder.none,
+                                    const SizedBox(width: 12),
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 4.0),
+                                      child: Text(
+                                        'Notes',
+                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF484848)),
                                       ),
-                                      validator: (value) {
-                                        if (value == null || value.trim().isEmpty) {
-                                          return 'Please add details.';
-                                        }
-                                        return null;
-                                      },
-                                      onChanged: (_) {
-                                        if (localError != null) {
-                                          setSheetState(() {
-                                            localError = null;
-                                          });
-                                        }
-                                      },
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: notesController,
+                                        focusNode: notesFocusNode,
+                                        minLines: 1,
+                                        maxLines: null,
+                                        keyboardType: TextInputType.multiline,
+                                        textAlign: TextAlign.end,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                        decoration: InputDecoration(
+                                          hintText: selectedType == 'Booked Shoot'
+                                              ? 'Client name & Location'
+                                              : 'Renter name & gear list',
+                                          hintStyle: const TextStyle(color: Colors.black26, fontSize: 13),
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          border: InputBorder.none,
+                                        ),
+                                        validator: (value) {
+                                          if (value == null || value.trim().isEmpty) {
+                                            return 'Please add details.';
+                                          }
+                                          return null;
+                                        },
+                                        onChanged: (_) {
+                                          if (localError != null) {
+                                            setSheetState(() {
+                                              localError = null;
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
 
