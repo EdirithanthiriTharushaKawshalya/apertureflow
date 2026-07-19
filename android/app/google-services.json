@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "472720851938",
+    "project_id": "apertureflow-bc502",
+    "storage_bucket": "apertureflow-bc502.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:472720851938:android:c26ae87f15af2a8d516fbb",
+        "android_client_info": {
+          "package_name": "com.example.apertureflow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDl8X8qv7BhhusC8iJByWK6Zmuuja7n8Mg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
