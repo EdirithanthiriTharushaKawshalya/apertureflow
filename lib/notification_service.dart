@@ -8,7 +8,7 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 /// Wraps [FlutterLocalNotificationsPlugin] to schedule and cancel booking
-/// reminder notifications, keyed off the booking's Firestore document id.
+/// reminder notifications, keyed off the booking's local storage id.
 class NotificationService {
   NotificationService._internal();
   static final NotificationService instance = NotificationService._internal();
@@ -20,7 +20,7 @@ class NotificationService {
   static const String _channelName = 'Booking Reminders';
   static const String _channelDescription = 'Reminders for upcoming shoots and equipment rentals.';
 
-  /// Maps a booking's Firestore document id to a stable 32-bit notification id.
+  /// Maps a booking's local storage id to a stable 32-bit notification id.
   int _notificationIdFor(String bookingId) => bookingId.hashCode & 0x7fffffff;
 
   Future<void> init() async {

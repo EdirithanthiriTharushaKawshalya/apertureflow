@@ -1,26 +1,20 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'firebase_options.dart';
 import 'notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase using platform configurations
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
   await NotificationService.instance.init();
   await NotificationService.instance.requestPermissions();
 
-  runApp(ApertureFlowApp(repository: FirestoreBookingRepository()));
+  runApp(ApertureFlowApp(repository: LocalBookingRepository()));
 }
 
 /// The root widget of the ApertureFlow Availability and Rental Management application.
@@ -77,8 +71,8 @@ class ApertureFlowApp extends StatelessWidget {
   }
 }
 
-/// Repository interface defining database operations for calendar events.
-/// Enables decoupling UI from Firebase to support unit/widget testing.
+/// Repository interface defining storage operations for calendar events.
+/// Enables decoupling UI from the storage mechanism to support unit/widget testing.
 abstract class BookingRepository {
   Stream<List<CalendarEvent>> streamBookings();
   /// Returns the newly created booking's id, so callers can key follow-up actions
@@ -88,38 +82,79 @@ abstract class BookingRepository {
   Future<void> deleteBooking(String eventId);
 }
 
-/// Production implementation of [BookingRepository] using Firebase Cloud Firestore.
-class FirestoreBookingRepository implements BookingRepository {
-  final CollectionReference _bookingsRef =
-      FirebaseFirestore.instance.collection('bookings');
+/// Production implementation of [BookingRepository] backed by the device's local
+/// storage (via [SharedPreferences]). No account, server, or network connection
+/// is required — all bookings live only on this device.
+class LocalBookingRepository implements BookingRepository {
+  static const String _storageKey = 'apertureflow_bookings_v1';
+
+  final StreamController<List<CalendarEvent>> _controller =
+      StreamController<List<CalendarEvent>>.broadcast();
+  List<CalendarEvent> _bookings = [];
+  bool _loaded = false;
+
+  /// Loads the persisted bookings from disk exactly once, lazily.
+  Future<void> _ensureLoaded() async {
+    if (_loaded) return;
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_storageKey);
+    if (raw != null) {
+      final List<dynamic> decoded = jsonDecode(raw);
+      _bookings = decoded
+          .map((e) => CalendarEvent.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    _loaded = true;
+  }
+
+  Future<void> _persist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(_bookings.map((e) => e.toJson()).toList());
+    await prefs.setString(_storageKey, encoded);
+  }
 
   @override
   Stream<List<CalendarEvent>> streamBookings() {
-    return _bookingsRef.snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>?;
-        if (data == null) {
-          return CalendarEvent(id: doc.id, date: DateTime.now(), type: 'Booked Shoot');
-        }
-        return CalendarEvent.fromFirestore(doc.id, data);
-      }).toList();
+    _ensureLoaded().then((_) {
+      if (!_controller.isClosed) {
+        _controller.add(List.from(_bookings));
+      }
     });
+    return _controller.stream;
   }
 
   @override
   Future<String> addBooking(CalendarEvent event) async {
-    final docRef = await _bookingsRef.add(event.toFirestore());
-    return docRef.id;
+    await _ensureLoaded();
+    final newEvent = CalendarEvent(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      date: event.date,
+      type: event.type,
+      reminderTime: event.reminderTime,
+    );
+    _bookings.add(newEvent);
+    await _persist();
+    _controller.add(List.from(_bookings));
+    return newEvent.id;
   }
 
   @override
   Future<void> updateBooking(CalendarEvent event) async {
-    await _bookingsRef.doc(event.id).update(event.toFirestore());
+    await _ensureLoaded();
+    final index = _bookings.indexWhere((e) => e.id == event.id);
+    if (index != -1) {
+      _bookings[index] = event;
+      await _persist();
+      _controller.add(List.from(_bookings));
+    }
   }
 
   @override
   Future<void> deleteBooking(String eventId) async {
-    await _bookingsRef.doc(eventId).delete();
+    await _ensureLoaded();
+    _bookings.removeWhere((e) => e.id == eventId);
+    await _persist();
+    _controller.add(List.from(_bookings));
   }
 }
 
@@ -214,22 +249,22 @@ class CalendarEvent {
     this.reminderTime,
   });
 
-  /// Convert event data to a Map format compatible with Cloud Firestore.
-  Map<String, dynamic> toFirestore() => {
-        'date': Timestamp.fromDate(date),
+  /// Converts event data to a JSON-serializable map for on-device storage.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'date': date.toIso8601String(),
         'type': type,
-        'reminderTime': reminderTime != null ? Timestamp.fromDate(reminderTime!) : null,
+        'reminderTime': reminderTime?.toIso8601String(),
       };
 
-  /// Factory method to construct an event from Cloud Firestore document maps.
-  factory CalendarEvent.fromFirestore(String docId, Map<String, dynamic> data) {
-    final Timestamp timestamp = data['date'] as Timestamp;
-    final Timestamp? reminderTimestamp = data['reminderTime'] as Timestamp?;
+  /// Factory method to reconstruct an event from a JSON map read from local storage.
+  factory CalendarEvent.fromJson(Map<String, dynamic> json) {
+    final reminderTimeRaw = json['reminderTime'] as String?;
     return CalendarEvent(
-      id: docId,
-      date: timestamp.toDate(),
-      type: data['type'] as String,
-      reminderTime: reminderTimestamp?.toDate(),
+      id: json['id'] as String,
+      date: DateTime.parse(json['date'] as String),
+      type: json['type'] as String,
+      reminderTime: reminderTimeRaw != null ? DateTime.parse(reminderTimeRaw) : null,
     );
   }
 }
@@ -428,8 +463,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return count;
   }
 
-  /// Triggers automated seeding in production database when snapshots report empty setup.
-  Future<void> _seedFirestore() async {
+  /// Seeds a few sample bookings into local storage on first-ever launch, so the
+  /// dashboard isn't blank before the user has added anything of their own.
+  Future<void> _seedInitialData() async {
     try {
       final now = DateTime.now();
       final year = now.year;
@@ -463,7 +499,7 @@ class _HomeScreenState extends State<HomeScreen> {
         type: 'Booked Shoot',
       ));
     } catch (e) {
-      debugPrint("Error seeding Firestore: $e");
+      debugPrint("Error seeding initial sample data: $e");
     } finally {
       if (mounted) {
         setState(() {
@@ -1157,7 +1193,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Text(
                     isEditing
                         ? '${resultEvent.type} updated successfully!'
-                        : '${resultEvent.type} added successfully to Cloud Firestore!',
+                        : '${resultEvent.type} added successfully!',
                     style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1176,7 +1212,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save to Firestore: $e'),
+            content: Text('Failed to save booking: $e'),
             backgroundColor: Colors.redAccent.shade700,
             behavior: SnackBarBehavior.floating,
           ),
@@ -1190,16 +1226,25 @@ class _HomeScreenState extends State<HomeScreen> {
     final normalized = _normalizeDate(day);
     final dayEvents = _events[normalized] ?? [];
 
-    // Decide color mapping. Booked Shoot takes top color precedence.
+    // Decide color mapping. A day booked with both a shoot and a rental gets
+    // its own distinct "mixed" status rather than letting one silently win.
+    final hasShoot = dayEvents.any((e) => e.type == 'Booked Shoot');
+    final hasRental = dayEvents.any((e) => e.type == 'Equipment Rental');
     String status = 'free';
-    if (dayEvents.any((e) => e.type == 'Booked Shoot')) {
+    if (hasShoot && hasRental) {
+      status = 'mixed';
+    } else if (hasShoot) {
       status = 'shoot';
-    } else if (dayEvents.isNotEmpty) {
+    } else if (hasRental) {
       status = 'rental';
     }
 
+    const shootColor = Color(0xFFF43F5E); // Softer premium crimson (Rose)
+    const rentalColor = Color(0xFFF59E0B); // Softer premium amber (Yellow-orange)
+
     // Default styles for normal (free) days
     Color? cellColor;
+    Gradient? cellGradient;
     Color textColor = const Color(0xFF0F172A); // Dark charcoal for normal numbers
     BoxBorder? cellBorder;
 
@@ -1207,11 +1252,21 @@ class _HomeScreenState extends State<HomeScreen> {
       textColor = Colors.black26; // Faded out for adjacent month days
     }
 
-    if (status == 'shoot') {
-      cellColor = const Color(0xFFF43F5E); // Softer premium crimson (Rose)
+    if (status == 'mixed') {
+      // Diagonal split so both booking types stay legible at a glance, rather
+      // than blending into a muddy in-between color.
+      cellGradient = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [shootColor, shootColor, rentalColor, rentalColor],
+        stops: [0.0, 0.5, 0.5, 1.0],
+      );
+      textColor = Colors.white;
+    } else if (status == 'shoot') {
+      cellColor = shootColor;
       textColor = Colors.white;
     } else if (status == 'rental') {
-      cellColor = const Color(0xFFF59E0B); // Softer premium amber (Yellow-orange)
+      cellColor = rentalColor;
       textColor = Colors.white;
     } else {
       // Free day selection (Solid dark slate circle Airbnb style)
@@ -1220,6 +1275,8 @@ class _HomeScreenState extends State<HomeScreen> {
         textColor = Colors.white;
       }
     }
+
+    final bool hasFill = cellColor != null || cellGradient != null;
 
     // Border highlights for selected booked days
     if (isSelected && status != 'free') {
@@ -1232,12 +1289,13 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.all(2.0), // Tight margin so circles fill the larger cell
       decoration: BoxDecoration(
         color: cellColor,
+        gradient: cellGradient,
         shape: BoxShape.circle,
         border: cellBorder,
-        boxShadow: cellColor != null && !isOutside
+        boxShadow: hasFill && !isOutside
             ? [
                 BoxShadow(
-                  color: cellColor.withOpacity(0.35),
+                  color: (cellColor ?? shootColor).withOpacity(0.35),
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                 )
@@ -1255,7 +1313,7 @@ class _HomeScreenState extends State<HomeScreen> {
               fontSize: 16,
             ),
           ),
-          if (isToday && cellColor == null)
+          if (isToday && !hasFill)
             Positioned(
               bottom: 6,
               child: Container(
@@ -1267,7 +1325,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             )
-          else if (isToday && cellColor != null)
+          else if (isToday && hasFill)
             Positioned(
               bottom: 6,
               child: Container(
@@ -1417,18 +1475,28 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildLegend() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 24,
+        runSpacing: 6,
         children: [
-          _buildLegendItem('SHOOT', const Color(0xFFF43F5E)),
-          const SizedBox(width: 24),
-          _buildLegendItem('RENTAL', const Color(0xFFF59E0B)),
+          _buildLegendItem('SHOOT', color: const Color(0xFFF43F5E)),
+          _buildLegendItem('RENTAL', color: const Color(0xFFF59E0B)),
+          _buildLegendItem(
+            'BOTH',
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFF43F5E), Color(0xFFF43F5E), Color(0xFFF59E0B), Color(0xFFF59E0B)],
+              stops: [0.0, 0.5, 0.5, 1.0],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildLegendItem(String label, Color color) {
+  Widget _buildLegendItem(String label, {Color? color, Gradient? gradient}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1437,6 +1505,7 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 10,
           decoration: BoxDecoration(
             color: color,
+            gradient: gradient,
             borderRadius: BorderRadius.circular(3),
           ),
         ),
@@ -1901,7 +1970,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Text(
-                  'Error connecting to database: ${snapshot.error}\n\nPlease check your internet connection or Firestore rules.',
+                  'Error loading your bookings: ${snapshot.error}',
                   style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
@@ -1912,10 +1981,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final list = snapshot.data ?? [];
 
-        // Auto-seed if database is empty and repository is Firestore
-        if (list.isEmpty && widget.repository is FirestoreBookingRepository && !_isSeeding) {
+        // Seed a few sample bookings on first-ever launch, when local storage is empty.
+        if (list.isEmpty && widget.repository is LocalBookingRepository && !_isSeeding) {
           _isSeeding = true;
-          _seedFirestore();
+          _seedInitialData();
         }
 
         // Parse list events into local normalized map
