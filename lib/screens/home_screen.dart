@@ -532,10 +532,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openAddEventForm({CalendarEvent? editingEvent}) async {
     final bool isEditing = editingEvent != null;
 
-    final CalendarEvent? resultEvent = await showModalBottomSheet<CalendarEvent>(
+    final CalendarEvent? resultEvent = await showDialog<CalendarEvent>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (context) {
         DateTime formDate = editingEvent?.date ?? _selectedDay;
         String selectedType = editingEvent?.type ?? 'Booked Shoot';
@@ -548,23 +546,15 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, setSheetState) {
             final formattedFormDate = DateFormat('EEEE, MMMM d, yyyy').format(formDate);
 
-            // Use standard Padding since MediaQuery.of(context).viewInsets.bottom
-            // is already animated frame-by-frame by the OS / Flutter framework.
-            return Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            return Dialog(
+              backgroundColor: Colors.white,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, -2),
-                    )
-                  ],
-                ),
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                constraints: const BoxConstraints(maxWidth: 440),
+                padding: const EdgeInsets.all(24),
                 child: SingleChildScrollView(
                   child: Form(
                     key: formKey,
@@ -572,18 +562,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Center(
-                          child: Container(
-                            width: 40,
-                            height: 4,
-                            margin: const EdgeInsets.only(bottom: 20),
-                            decoration: BoxDecoration(
-                              color: Colors.black12,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                        
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
