@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:apertureflow/main.dart';
+import 'package:apertureflow/repositories/booking_repository.dart';
 
 void main() {
   testWidgets('ApertureFlowApp smoke test', (WidgetTester tester) async {
